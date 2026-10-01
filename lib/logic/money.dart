@@ -1,11 +1,20 @@
 import '../models/entry.dart';
 
+/// 밝기 모드. auto = 폰 설정을 따른다.
+const modeIds = ['auto', 'light', 'dark'];
+
 /// 예산 주기. 한 달(기본) 또는 매주 월요일에 다시 차는 일주일.
 enum Period { month, week }
 
 /// 앱에 저장되는 전부. UI 와 저장소에 의존하지 않는다.
 class MoneyData {
-  const MoneyData({required this.entries, required this.budget, required this.nextId, this.period = Period.month});
+  const MoneyData({
+    required this.entries,
+    required this.budget,
+    required this.nextId,
+    this.period = Period.month,
+    this.mode = 'auto',
+  });
 
   factory MoneyData.initial() => const MoneyData(entries: [], budget: 0, nextId: 1);
 
@@ -17,11 +26,15 @@ class MoneyData {
   final int nextId;
   final Period period;
 
-  MoneyData copyWith({List<Entry>? entries, int? budget, int? nextId, Period? period}) => MoneyData(
+  /// 화면 밝기: auto(폰 설정을 따름) | light | dark
+  final String mode;
+
+  MoneyData copyWith({List<Entry>? entries, int? budget, int? nextId, Period? period, String? mode}) => MoneyData(
         entries: entries ?? this.entries,
         budget: budget ?? this.budget,
         nextId: nextId ?? this.nextId,
         period: period ?? this.period,
+        mode: mode ?? this.mode,
       );
 
   Map<String, dynamic> toJson() => {
@@ -29,6 +42,7 @@ class MoneyData {
         'entries': [for (final e in entries) e.toJson()],
         'budget': budget,
         'period': period.name,
+        'mode': mode,
         'nextId': nextId,
       };
 
@@ -45,6 +59,7 @@ class MoneyData {
       budget: (j['budget'] as num?)?.toInt() ?? 0,
       nextId: next,
       period: j['period'] == 'week' ? Period.week : Period.month,
+      mode: modeIds.contains(j['mode']) ? j['mode'] as String : 'auto',
     );
   }
 }

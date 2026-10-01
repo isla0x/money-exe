@@ -25,6 +25,7 @@ C:\money> -4500 커피
 | `print [달]` | 영수증 출력 (`print 9`, `print 2026.09`) |
 | `undo` | 마지막 기록 지우기 |
 | `cls` | 화면 로그 지우기 |
+| `mode dark` / `mode light` / `mode auto` | 화면 밝기 (auto 는 폰 설정을 따름, 위젯도 같이) |
 
 ## PRO (아이폰, 한 번 결제)
 

@@ -71,6 +71,8 @@ Map<String, dynamic> widgetSnapshot(MoneyData d, DateTime now, {bool pro = false
     'v': 1,
     'pro': pro,
     'period': d.period.name,
+    // 위젯은 auto 일 때 iOS 의 다크/라이트 설정을 직접 따른다.
+    'mode': d.mode,
     'budget': d.budget,
     'spent': disk.spent,
     'count': disk.count,

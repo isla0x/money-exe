@@ -128,6 +128,18 @@ CommandResult runCommand(MoneyData d, String raw, DateTime now) {
       );
     case 'budget':
       return _budget(d, arg, now, echo);
+    case 'mode' || 'theme':
+      final m = arg.trim().toLowerCase();
+      if (m.isEmpty) {
+        return reply([
+          LogLine(LogKind.info, '지금 화면: ${_modeName(d.mode)}'),
+          const LogLine(LogKind.info, '바꾸려면: mode dark · mode light · mode auto'),
+        ]);
+      }
+      if (!modeIds.contains(m)) {
+        return reply([LogLine(LogKind.err, "모드를 알 수 없어요: '$arg' (dark · light · auto)")]);
+      }
+      return reply([LogLine(LogKind.ok, '✓ 화면을 ${_modeName(m)}(으)로 바꿨어요.')], data: d.copyWith(mode: m));
   }
 
   if (s.startsWith('+')) {
@@ -220,6 +232,12 @@ CommandResult _budget(MoneyData d, String arg, DateTime now, LogLine echo) {
     if (data.period == Period.week) const LogLine(LogKind.info, '매주 월요일에 디스크가 다시 비워져요.'),
   ]);
 }
+
+String _modeName(String m) => switch (m) {
+      'dark' => '다크',
+      'light' => '라이트',
+      _ => 'auto (폰 설정 따라감)',
+    };
 
 /// 목록의 rm 버튼.
 CommandResult removeEntry(MoneyData d, int id) {

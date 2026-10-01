@@ -20,6 +20,7 @@ const _entries = <(String, String, String, String?)>[
   ('undo', '', '마지막으로 기록한 한 건을 지워요.', null),
   ('rm', '', '목록 오른쪽 rm 을 두 번 누르면 그 기록을 지워요.', null),
   ('cls', '', '화면 로그만 지워요. 기록은 그대로예요.', null),
+  ('mode', '[dark | light | auto]', '화면 밝기. auto 는 폰 설정을 따라가요. 위젯도 같이 바뀌어요.', 'mode dark'),
 ];
 
 /// 아이폰에서만 보인다.

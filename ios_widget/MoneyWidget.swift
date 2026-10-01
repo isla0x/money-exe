@@ -34,6 +34,8 @@ struct MoneySnapshot: Decodable {
     let pro: Bool?
     /// "month" | "week"
     let period: String
+    /// auto | light | dark. 예전 데이터에는 없을 수 있다.
+    let mode: String?
     let budget: Int
     let spent: Int
     let count: Int
@@ -45,8 +47,17 @@ struct MoneySnapshot: Decodable {
     var isPro: Bool { pro ?? false }
     var weekly: Bool { period == "week" }
 
+    /// 앱의 mode 설정과 iOS 다크/라이트 설정으로 밝은 화면인지 정한다.
+    func isLight(_ scheme: ColorScheme) -> Bool {
+        switch mode ?? "auto" {
+        case "light": return true
+        case "dark": return false
+        default: return scheme == .light
+        }
+    }
+
     static let empty = MoneySnapshot(
-        pro: false, period: "month", budget: 0, spent: 0, count: 0,
+        pro: false, period: "month", mode: "auto", budget: 0, spent: 0, count: 0,
         from: Date().timeIntervalSince1970 * 1000, until: Date().addingTimeInterval(86400 * 30).timeIntervalSince1970 * 1000,
         recent: []
     )
@@ -56,7 +67,7 @@ struct MoneySnapshot: Decodable {
         let start = cal.date(from: cal.dateComponents([.year, .month], from: Date())) ?? Date()
         let end = cal.date(byAdding: .month, value: 1, to: start) ?? Date()
         return MoneySnapshot(
-            pro: true, period: "month", budget: 700000, spent: 607600, count: 21,
+            pro: true, period: "month", mode: "auto", budget: 700000, spent: 607600, count: 21,
             from: start.timeIntervalSince1970 * 1000, until: end.timeIntervalSince1970 * 1000,
             recent: [
                 RecentItem(d: "09.23", m: "커피", a: 4800),
@@ -436,7 +447,7 @@ struct MoneyWidgetView: View {
     @Environment(\.colorScheme) private var scheme
     let entry: MoneyEntry
 
-    private var c: TermColors { TermColors.of(light: scheme == .light) }
+    private var c: TermColors { TermColors.of(light: entry.snap.isLight(scheme)) }
 
     var body: some View {
         content.widgetURL(addURL)

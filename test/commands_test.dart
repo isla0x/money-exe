@@ -200,4 +200,16 @@ void main() {
       expect(MoneyData.fromJson(const {'budget': 1}).period, Period.month);
     });
   });
+
+  test('mode: dark · light · auto, 저장', () {
+    var d = run(MoneyData.initial(), 'mode dark');
+    expect(d.mode, 'dark');
+    d = run(d, 'mode LIGHT');
+    expect(d.mode, 'light');
+    final bad = runCommand(d, 'mode pink', now);
+    expect(bad.data.mode, 'light');
+    expect(bad.lines.last.kind, LogKind.err);
+    expect(MoneyData.fromJson(d.toJson()).mode, 'light');
+    expect(MoneyData.fromJson(const {'mode': 'x'}).mode, 'auto');
+  });
 }

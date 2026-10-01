@@ -44,7 +44,14 @@ class MoneyStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  TermPalette get palette => TermPalette.of(_brightness);
+  /// 지금 밝은 화면인지 (mode + 폰 설정).
+  bool get lightMode => switch (_data.mode) {
+        'light' => true,
+        'dark' => false,
+        _ => _brightness == Brightness.light,
+      };
+
+  TermPalette get palette => lightMode ? TermPalette.light : TermPalette.dark;
 
   Future<void> load() async {
     _prefs = await SharedPreferences.getInstance();
