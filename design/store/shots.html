@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<style>
+@font-face { font-family: JBM; src: url(fonts/JetBrainsMono-Regular.ttf); font-weight: 400; }
+@font-face { font-family: JBM; src: url(fonts/JetBrainsMono-Bold.ttf); font-weight: 700; }
+@font-face { font-family: NGC; src: url(fonts/NanumGothicCoding-Regular.ttf); font-weight: 400; }
+@font-face { font-family: NGC; src: url(fonts/NanumGothicCoding-Bold.ttf); font-weight: 700; }
+@font-face { font-family: NSK; src: url(fonts/NotoSansKR.ttf); font-weight: 100 900; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: #0C0C0C; overflow: hidden; }
+.canvas { position: relative; overflow: hidden; background: radial-gradient(120% 70% at 50% 0%, #1b1726 0%, #0C0C0C 62%); }
+.cap { position: absolute; left: 0; right: 0; text-align: center; color: #F2F2F2; }
+.cap .p { font-family: JBM, NGC, monospace; color: #8A8A8A; }
+.cap .p b { color: #16C60C; font-weight: 400; }
+.cap .t { font-family: NSK, sans-serif; font-weight: 800; letter-spacing: -0.5px; }
+.cap .s { font-family: NSK, sans-serif; color: #A9A9B2; font-weight: 500; }
+.frame { position: absolute; background: #1b1b1b; border: 1px solid #3a3a3a; box-shadow: 0 30px 80px rgba(0,0,0,.65), inset 0 0 0 2px #0a0a0a; }
+.screen { position: absolute; overflow: hidden; }
+.app { position: absolute; left: 0; top: 0; width: 390px; height: 844px; transform-origin: top left; font-family: JBM, NGC, monospace;
+       display: flex; flex-direction: column; font-size: 14px; line-height: 1.5; }
+.nowrap { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const q = new URLSearchParams(location.search);
+const device = q.get('device') || 'iphone';   // iphone · ipad · play · raw
+const shot = q.get('shot') || '1';
+const IP = device !== 'ipad';
+const C = {
+  iphone: { w: 440, h: 956, frameTop: 196, screenW: 340, bezel: 9, rFrame: 56, rScreen: 48, capTop: 58, pSize: 13, tSize: 32, sSize: 15 },
+  iphone65: { w: 428, h: 926, frameTop: 190, screenW: 330, bezel: 9, rFrame: 54, rScreen: 46, capTop: 54, pSize: 13, tSize: 31, sSize: 15 },
+  play: { w: 360, h: 640, frameTop: 150, screenW: 230, bezel: 7, rFrame: 34, rScreen: 28, capTop: 36, pSize: 11, tSize: 24, sSize: 12 },
+  ipad: { w: 1032, h: 1376, frameTop: 300, screenW: 466, bezel: 14, rFrame: 64, rScreen: 54, capTop: 86, pSize: 20, tSize: 52, sSize: 22 },
+  raw: { w: 440, h: 956 },
+}[device === 'iphone' && q.get('size') === '65' ? 'iphone65' : device];
+const appW = 390, appH = 844;
+
+const DARK = { bg:'#0C0C0C', bar:'#1A1A1A', panel:'#121212', fg:'#CCCCCC', hi:'#F2F2F2', dim:'#8A8A8A', ok:'#16C60C', tag:'#F9F1A5', cmd:'#61D6D6', warn:'#E74856', line:'#2A2A2A' };
+const LIGHT = { bg:'#F5F2E8', bar:'#E8E4D6', panel:'#EDE9DC', fg:'#2B2B2B', hi:'#111111', dim:'#6B6B6B', ok:'#0B7A0B', tag:'#7A5F00', cmd:'#0B6E8A', warn:'#C0282F', line:'#D6D1C2' };
+
+const SEED = [
+  ['09.02','장보기 이마트',68400,'식비'],['09.03','넷플릭스',13500,'구독'],['09.05','교통카드 충전',50000,'교통'],
+  ['09.07','친구 생일 선물',45000,'선물'],['09.09','저녁 고기',52000,'식비'],['09.11','쿠팡 생필품',37800,'쇼핑'],
+  ['09.12','미용실',88000,'생활'],['09.14','장보기',41200,'식비'],['09.15','카페 디저트',6200,'카페'],
+  ['09.17','니트',79000,'쇼핑'],['09.18','유튜브 프리미엄',14900,'구독'],['09.19','택시',18700,'교통'],
+  ['09.20','저녁 배달',28500,'식비'],['09.21','영화',15000,'문화'],['09.21','팝콘',8500,'문화'],
+  ['09.22','병원',12300,'의료'],['09.22','약국',7800,'의료'],['09.23','점심',9500,'식비'],
+  ['09.23','커피',4800,'카페'],['09.24','점심 김밥',4500,'식비'],['09.24','아아',2000,'카페'],
+];
+const won = n => Math.round(n).toLocaleString('ko-KR');
+const sum = l => l.reduce((s, e) => s + e[2], 0);
+
+// ── 앱 조각 ──
+function titleBar(p, active) {
+  const tab = (t) => `<div style="height:44px;padding:0 10px;display:flex;align-items:center;font-size:13px;${active === t ? `background:${p.fg};color:${p.bg}` : `color:${t === 'PRO' ? p.tag : p.dim}`}">${t}</div>`;
+  return `<div style="flex:0 0 auto;background:${p.bar};border-bottom:1px solid ${p.line};padding-top:47px">
+    <div style="height:44px;display:flex;align-items:center;padding:0 4px 0 14px;gap:8px">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="${p.hi}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4.5L6 8l-3.5 3.5M8 12h5.5"/></svg>
+      <span style="color:${p.hi};font-size:13px">money.exe</span><span style="color:${p.dim};font-size:12px;flex:1">09.24 목</span>
+      ${active ? '' : tab('PRO')}${tab('stats')}${tab('help')}</div></div>`;
+}
+function diskPanel(p, d) {
+  const color = d.level === 'full' ? p.warn : d.level === 'warn' ? p.tag : p.ok;
+  const msgC = d.level === 'full' ? p.warn : d.level === 'warn' ? p.tag : p.fg;
+  return `<div style="background:${p.panel};border:1px solid ${p.line};padding:14px">
+    <div style="display:flex;font-size:12px;color:${p.dim}"><span style="flex:1">로컬 디스크 (C:) · ${d.title}</span><span>${d.pctLabel} 사용</span></div>
+    <div style="height:20px;padding:2px;margin-top:8px;background:${p.bg};border:1px solid ${p.dim}"><div style="height:100%;width:${Math.min(100, d.pct)}%;background:${color}"></div></div>
+    <div style="display:flex;font-size:13px;margin-top:8px;color:${p.fg}"><span>사용 <b style="color:${p.hi}">${won(d.spent)}원</b></span><span style="flex:1"></span><span style="color:${p.dim}">/ ${won(d.budget)}원</span></div>
+    <div style="font-size:12px;color:${msgC};margin-top:4px">${d.msg}</div>
+    ${d.week ? `<div style="font-size:12px;color:${p.dim}">${d.week}</div>` : ''}</div>`;
+}
+function rows(p, list) {
+  return list.map(([d, m, a, t]) => `<div style="display:flex;align-items:center;gap:10px;min-height:44px;border-bottom:1px solid ${p.line};font-size:13px">
+    <span style="color:${p.dim}">${d}</span><span class="nowrap" style="flex:1;color:${p.hi}">${m}</span>
+    <span style="color:${p.hi}">-${won(a)}</span><span style="width:52px;text-align:right;color:${p.tag};font-size:12px">#${t}</span>
+    <span style="width:30px;text-align:center;color:${p.dim};font-size:12px">rm</span></div>`).join('');
+}
+function footer(p, input, cursor = true) {
+  const chips = ['- 지출', 'dir', 'print', 'stats', 'budget', 'undo'];
+  return `<div style="flex:0 0 auto;background:${p.bar};border-top:1px solid ${p.line};padding:8px 12px 34px">
+    <div style="display:flex;gap:6px;overflow:hidden">${chips.map(c => `<div style="flex:0 0 auto;height:44px;padding:0 12px;border:1px solid ${p.line};display:flex;align-items:center;color:${p.cmd};font-size:13px">${c}</div>`).join('')}</div>
+    <div style="height:50px;margin-top:8px;background:${p.bg};border:1px solid ${p.line};display:flex;align-items:center;padding:0 2px 0 12px;gap:8px">
+      <span style="color:${p.hi}">C:\\money&gt;</span>
+      <span style="flex:1;font-size:16px;color:${input ? p.hi : p.dim}">${input || '-4500 커피'}${cursor && input ? `<span style="display:inline-block;width:9px;height:18px;background:${p.ok};vertical-align:-3px;margin-left:1px"></span>` : ''}</span>
+      <svg width="44" height="44" viewBox="-13 -13 44 44" fill="none" stroke="${p.ok}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3v6q0 2-2 2H3.5M7 7.5L3.5 11 7 14.5"/></svg></div></div>`;
+}
+function logLines(p, lines) {
+  return `<div style="padding:8px 0;min-height:56px;display:flex;flex-direction:column;justify-content:flex-end">${lines.map(([t, k]) =>
+    `<div style="font-size:13px;color:${{ cmd: p.fg, ok: p.ok, err: p.warn, info: p.dim }[k]}">${t}</div>`).join('')}</div>`;
+}
+function disk(list, budget, opt = {}) {
+  const spent = sum(list), free = budget - spent, pct = Math.round(spent * 1000 / budget) / 10;
+  const level = free < 0 ? 'full' : pct >= 80 ? 'warn' : 'ok';
+  const days = opt.days ?? 7, per = Math.floor(free / days / 100) * 100;
+  const pctLabel = pct === Math.round(pct) ? `${pct}%` : `${pct}%`;
+  const msg = level === 'full' ? `디스크가 가득 찼어요: 예산을 ${won(-free)}원 넘었어요`
+    : `${level === 'warn' ? '공간 부족 경고 · 여유 ' : '여유 공간 '}${won(free)}원 · 남은 ${days}일, 하루 ${won(per)}원`;
+  return { spent, budget, pct, pctLabel, level, msg, title: opt.title || '9월 예산', week: opt.week };
+}
+function home(p, { list, diskList, budget, input, log, diskOpt, header = true }) {
+  const d = disk(diskList || list, budget, diskOpt);
+  return titleBar(p) + `<div style="flex:1;min-height:0;padding:14px 16px 0;display:flex;flex-direction:column;background:${p.bg}">
+    ${header ? `<div style="color:${p.hi}">MONEY [Version 1.0.0]</div><div style="color:${p.dim};font-size:13px">오늘도 아껴서, 천천히.</div>
+    <div style="margin:12px 0 10px"><span style="color:${p.fg}">C:\\money&gt; </span><span style="color:${p.cmd}">dir</span></div>` : ''}
+    ${diskPanel(p, d)}
+    <div style="display:flex;font-size:12px;color:${p.dim};margin-top:16px;padding-bottom:4px;border-bottom:1px solid ${p.line}"><span style="flex:1">9월 기록</span><span>${list.length}개 항목</span></div>
+    <div style="flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end">${rows(p, list.slice(-8))}</div>
+    ${logLines(p, log || [])}</div>` + footer(p, input);
+}
+
+// ── 화면들 ──
+const P = DARK;
+const base = SEED.slice(0, 19);
+function shotHome() {
+  return home(P, { list: SEED, budget: 700000, input: '점심 김밥 4500',
+    log: [['C:\\money&gt; -2000 아아', 'cmd'], ['✓ 2,000원 기록 · #카페 · 여유 92,400원', 'ok']] });
+}
+function shotFull() {
+  const list = [...SEED, ['09.24', '가방', 105000, '쇼핑']];
+  const d = disk(list, 700000);
+  return home(P, { list, budget: 700000, input: '',
+    log: [['C:\\money&gt; -105000 가방', 'cmd'], ['✓ 105,000원 기록 · #쇼핑 · 예산 12,600원 초과', 'err']] }) + `
+  <div style="position:absolute;inset:0;background:rgba(0,0,0,.66);display:flex;align-items:center;justify-content:center;padding:24px">
+    <div style="width:100%;background:${P.bar};border:1px solid ${P.dim};box-shadow:6px 6px 0 #000">
+      <div style="height:40px;background:${P.warn};color:#0C0C0C;font-weight:700;font-size:13px;display:flex;align-items:center;padding:0 0 0 12px">
+        <span style="flex:1">money.exe - 디스크 공간 부족</span><span style="width:44px;text-align:center;font-size:16px">✕</span></div>
+      <div style="display:flex;gap:14px;padding:20px 18px 6px">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="${P.warn}" stroke-width="2"><path d="M12 3L2 21h20L12 3z"/><path d="M12 10v5M12 17.5v.5"/></svg>
+        <div style="font-size:13px"><div style="color:${P.hi};font-weight:700">C: 드라이브의 공간이 부족합니다.</div>
+          <div style="color:${P.fg};margin-top:6px">9월 예산을 ${won(d.spent - 700000)}원 초과했어요.</div>
+          <div style="color:${P.dim};font-size:12px;margin-top:4px">남은 7일은 조금만 아껴볼까요?</div></div></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;padding:14px 14px 16px">
+        <div style="height:44px;padding:0 16px;border:1px solid ${P.dim};color:${P.fg};display:flex;align-items:center;font-size:13px">예산 늘리기</div>
+        <div style="height:44px;padding:0 18px;background:${P.hi};color:${P.bg};font-weight:700;display:flex;align-items:center;font-size:13px">확인</div></div>
+    </div></div>`;
+}
+function receiptLines() {
+  const L = [];
+  const c = (t, o = {}) => L.push({ a: t, b: '', center: true, ...o });
+  const pr = (a, b, o = {}) => L.push({ a, b, ...o });
+  const rule = () => L.push({ rule: true });
+  c('money.exe', { title: true }); c('RECEIPT · 2026.09'); c('C:\\money\\2026\\09.txt'); rule();
+  SEED.slice(-9).forEach(([d, m, a]) => pr(`${d} ${m}`, won(a)));
+  rule(); pr(`합계 (${SEED.length}건)`, `${won(sum(SEED))}원`, { bold: true }); pr('예산', '700,000원');
+  pr('여유 공간', `${won(700000 - sum(SEED))}원`, { bold: true }); rule();
+  pr('#식비', '204,100'); pr('#쇼핑', '116,800'); pr('#생활', '88,000'); rule();
+  c('오늘도 아껴서, 천천히.'); c('|| ||| | |||| || ||| |', { big: true }); c('2026.09.24 21:07');
+  return L;
+}
+function shotPrint() {
+  const L = receiptLines();
+  const lines = L.map(l => l.rule ? `<div style="border-top:1px dashed #8A8578;margin:8px 0"></div>`
+    : `<div style="display:flex;gap:10px;justify-content:${l.center ? 'center' : 'space-between'};font-weight:${l.title || l.bold ? 700 : 400};font-size:${l.title ? 16 : l.big ? 17 : 12}px;line-height:1.6">
+        <span class="nowrap">${l.a}</span>${l.b ? `<span>${l.b}</span>` : ''}</div>`).join('');
+  return titleBar(P, 'none') + `<div style="flex:1;min-height:0;background:${P.bg};padding:14px 16px 0;display:flex;flex-direction:column;align-items:center">
+    <div style="align-self:stretch;font-size:13px"><span style="color:${P.fg}">C:\\money&gt; </span><span style="color:${P.cmd}">print</span><span style="color:${P.ok}">  출력 완료</span></div>
+    <div style="width:332px;height:14px;margin-top:12px;background:#2A2A2A;border:1px solid #444;border-radius:7px;flex:0 0 auto"></div>
+    <div style="width:300px;flex:1;min-height:0;overflow:hidden;margin-top:-7px;display:flex;flex-direction:column;justify-content:flex-end">
+      <div style="background:#F5F2E8;color:#2B2B2B;padding:20px 18px 22px">${lines}</div></div></div>
+    <div style="background:${P.bg};padding:10px 16px 46px">
+      <div style="height:36px;font-size:12px;color:${P.ok}">✓ saved to C:\\PICS\\money-exe-2026-09.png</div>
+      <div style="display:flex;gap:8px">${['SAVE .PNG', 'SHARE', 'CLOSE'].map((t, i) => `<div style="flex:1;height:44px;border:1px solid ${P.line};display:flex;align-items:center;justify-content:center;font-size:13px;color:${i ? P.fg : P.ok}">${t}</div>`).join('')}</div></div>`;
+}
+function shotStats() {
+  const tags = {}; SEED.forEach(e => tags[e[3]] = (tags[e[3]] || 0) + e[2]);
+  const counts = {}; SEED.forEach(e => counts[e[3]] = (counts[e[3]] || 0) + 1);
+  const names = Object.keys(tags).sort((a, b) => tags[b] - tags[a]);
+  const total = sum(SEED), max = tags[names[0]];
+  const months = [['26.04', 652000], ['26.05', 718300], ['26.06', 590400], ['26.07', 744900], ['26.08', 683100], ['26.09', total]];
+  const mmax = Math.max(...months.map(m => m[1]), 700000);
+  return titleBar(P, 'stats') + `<div style="flex:1;min-height:0;background:${P.bg};padding:14px 16px 0;overflow:hidden">
+    <div><span style="color:${P.fg}">C:\\money&gt; </span><span style="color:${P.cmd}">stats</span></div>
+    <div style="display:flex;align-items:center;margin-top:10px"><div style="width:44px;height:44px;border:1px solid ${P.line};display:flex;align-items:center;justify-content:center;color:${P.fg}">&lt;</div>
+      <div style="flex:1;text-align:center;color:${P.hi};font-weight:700">2026년 9월</div><div style="width:44px;height:44px;border:1px solid ${P.line};display:flex;align-items:center;justify-content:center;color:${P.fg};opacity:.3">&gt;</div></div>
+    <div style="font-size:12px;color:${P.dim};margin-top:14px">C:\\money\\2026\\09 의 폴더 크기</div>
+    ${names.slice(0, 7).map(n => `<div style="padding:8px 0;border-bottom:1px solid ${P.line};font-size:13px">
+      <div style="display:flex;gap:8px"><span style="color:${P.dim}">&lt;DIR&gt;</span><span style="flex:1;color:${P.tag}">${n}  (${counts[n]})</span><span style="color:${P.hi}">${won(tags[n])}</span><span style="width:46px;text-align:right;color:${P.dim}">${Math.round(tags[n] * 100 / total)}%</span></div>
+      <div style="height:6px;background:${P.line};margin-top:6px"><div style="height:100%;width:${tags[n] / max * 100}%;background:${P.cmd}"></div></div></div>`).join('')}
+    <div style="font-size:13px;color:${P.fg};margin-top:10px">${names.length}개 폴더 · ${SEED.length}개 파일 · ${won(total)}원</div>
+    <div style="color:${P.hi};margin-top:18px">최근 6개월</div><div style="font-size:12px;color:${P.dim}">| 표시 = 예산 700,000원</div>
+    ${months.map(([m, v], i) => `<div style="display:flex;align-items:center;margin-top:8px;font-size:13px"><span style="width:64px;color:${i === 5 ? P.hi : P.dim}">${m}</span>
+      <div style="flex:1;height:10px;background:${P.line};position:relative"><div style="height:100%;width:${v / mmax * 100}%;background:${v > 700000 ? P.warn : P.ok}"></div>
+      <div style="position:absolute;top:-3px;bottom:-3px;width:2px;left:${700000 / mmax * 100}%;background:${P.hi}"></div></div>
+      <span style="width:96px;text-align:right;color:${P.fg}">${won(v)}</span></div>`).join('')}</div>
+    <div style="background:${P.bg};padding:8px 16px 46px;display:flex;gap:8px">${[['[ ESC ]', '돌아가기'], ['[ P ]', '영수증']].map(([k, l]) =>
+      `<div style="flex:1;height:52px;border:1px solid ${P.fg};display:flex;align-items:center;justify-content:center;gap:12px;font-size:15px"><span style="color:${P.dim}">${k}</span><span style="color:${P.hi}">${l}</span></div>`).join('')}</div>`;
+}
+function shotWeekLight() {
+  const L = LIGHT;
+  const week = [['09.21', '버스', 1500, '교통'], ['09.21', '편의점', 6800, '식비'], ['09.22', '병원', 12300, '의료'], ['09.22', '약국', 7800, '의료'],
+                ['09.23', '점심', 9500, '식비'], ['09.23', '커피', 4800, '카페'], ['09.24', '점심 김밥', 4500, '식비'], ['09.24', '아아', 2000, '카페']];
+  return home(L, { list: SEED, diskList: week, budget: 150000, input: 'budget 15만 /week', diskOpt: { days: 4, title: '이번 주 예산 (9.21~9.27)' },
+    log: [['C:\\money&gt; mode light', 'cmd'], ['✓ 화면을 라이트(으)로 바꿨어요.', 'ok']] });
+}
+function smallWidget(s = 1) {
+  const d = disk(SEED, 700000);
+  return `<div style="width:${164 * s}px;height:${164 * s}px;border-radius:${22 * s}px;background:#0C0C0C;padding:${14 * s}px;display:flex;flex-direction:column;gap:${6 * s}px;font-family:JBM,NGC,monospace;box-shadow:0 8px 24px rgba(0,0,0,.35)">
+    <div style="font-size:${11 * s}px;font-weight:700"><span style="color:#16C60C">&gt;_</span> <span style="color:#F2F2F2">money.exe</span></div>
+    <div style="font-size:${10 * s}px;color:#8A8A8A">C: · 9월 예산</div>
+    <div style="height:${14 * s}px;border:1px solid #8A8A8A;padding:${2 * s}px"><div style="height:100%;width:${d.pct}%;background:#F9F1A5"></div></div>
+    <div style="display:flex;align-items:baseline;justify-content:space-between"><span style="font-size:${22 * s}px;font-weight:700;color:#F2F2F2">87%</span><span style="font-size:${10 * s}px;color:#8A8A8A">사용</span></div>
+    <div style="flex:1"></div><div style="font-size:${11 * s}px;color:#CCCCCC">여유 92,400원</div><div style="font-size:${11 * s}px;color:#F9F1A5">하루 13,200원</div></div>`;
+}
+function mediumWidget(s = 1) {
+  const r = [['09.23', '커피', '4,800'], ['09.24', '점심 김밥', '4,500'], ['09.24', '아아', '2,000']];
+  return `<div style="width:${352 * s}px;height:${164 * s}px;border-radius:${22 * s}px;background:#0C0C0C;padding:${14 * s}px;display:flex;gap:${14 * s}px;font-family:JBM,NGC,monospace;box-shadow:0 8px 24px rgba(0,0,0,.35)">
+    <div style="width:${136 * s}px;flex:0 0 auto;display:flex;flex-direction:column;gap:${6 * s}px">
+      <div style="font-size:${11 * s}px;font-weight:700"><span style="color:#16C60C">&gt;_</span> <span style="color:#F2F2F2">money.exe</span></div>
+      <div style="font-size:${10 * s}px;color:#8A8A8A">C: · 9월 예산</div>
+      <div style="height:${14 * s}px;border:1px solid #8A8A8A;padding:${2 * s}px"><div style="height:100%;width:87%;background:#F9F1A5"></div></div>
+      <div style="display:flex;align-items:baseline;justify-content:space-between"><span style="font-size:${22 * s}px;font-weight:700;color:#F2F2F2">87%</span><span style="font-size:${10 * s}px;color:#8A8A8A">사용</span></div>
+      <div style="flex:1"></div><div style="font-size:${11 * s}px;color:#CCCCCC">여유 92,400원</div><div style="font-size:${11 * s}px;color:#F9F1A5">하루 13,200원</div></div>
+    <div style="width:1px;background:#2A2A2A"></div>
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:${2 * s}px">
+      <div style="font-size:${10 * s}px;color:#8A8A8A">최근 기록</div>
+      ${r.map(([d, m, a]) => `<div style="display:flex;gap:${8 * s}px;font-size:${11 * s}px;padding:${3 * s}px 0;border-bottom:1px solid #2A2A2A"><span style="color:#8A8A8A">${d}</span><span class="nowrap" style="flex:1;color:#F2F2F2">${m}</span><span style="color:#F2F2F2">-${a}</span></div>`).join('')}
+      <div style="flex:1"></div>
+      <div style="height:${30 * s}px;border:1px solid #2A2A2A;display:flex;align-items:center;gap:${6 * s}px;padding:0 ${8 * s}px;font-size:${11 * s}px"><span style="color:#F2F2F2">C:\\money&gt;</span><span style="width:${7 * s}px;height:${13 * s}px;background:#16C60C"></span></div></div></div>`;
+}
+function icon(name) {
+  return `<div style="width:82px;display:flex;flex-direction:column;align-items:center;gap:5px"><img src="img/${name}.png" style="width:60px;height:60px;border-radius:14px">
+    <span style="font-size:11px;color:#fff;font-family:NSK,sans-serif">${name}.exe</span></div>`;
+}
+function shotWidgets() {
+  return `<div style="position:absolute;inset:0;background:linear-gradient(180deg,#3a3550 0%,#2B2E37 55%,#1f2128 100%)"></div>
+  <div style="position:absolute;left:0;right:0;top:110px;display:flex;flex-direction:column;align-items:center;gap:28px">
+    ${mediumWidget()}
+    <div style="width:352px;display:flex;justify-content:space-between">${smallWidget()}
+      <div style="width:164px;display:grid;grid-template-columns:1fr 1fr;row-gap:14px;justify-items:center">${icon('todo')}${icon('diary')}${icon('ink')}${icon('camera')}</div></div>
+    <div style="width:352px">${icon('money')}</div></div>`;
+}
+function shotPro() {
+  // PRO 화면 (인앱 구입 심사용)
+  const feats = [['홈 화면 위젯', '작게 · 중간. 디스크 막대, 여유 금액, 하루 쓸 돈, 최근 기록'], ['잠금화면 위젯', '직사각형 · 원형 게이지 · 시계 위 한 줄'],
+                 ['위젯 누르면 바로 입력', '앱이 입력칸을 연 채로 켜져요'], ['앞으로 나올 PRO 기능', '추가 결제 없이']];
+  return titleBar(P, 'none') + `<div style="flex:1;min-height:0;background:${P.bg};padding:14px 16px 0">
+    <div><span style="color:${P.fg}">C:\\money&gt; </span><span style="color:${P.cmd}">upgrade</span></div>
+    <div style="color:${P.hi};font-size:22px;font-weight:700;margin-top:14px">money.exe PRO</div><div style="color:${P.dim};font-size:13px">한 번 결제, 계속 사용</div>
+    <div style="display:flex;gap:12px;margin-top:16px;transform:scale(.92);transform-origin:left top">${smallWidget(150 / 164)}
+      <div style="flex:1;background:#2B2E37;border-radius:16px;padding:10px 12px;font-size:11px;color:#fff;height:96px"><div style="color:#8A8A8A;font-size:10px">잠금화면</div>
+      <div style="font-weight:700;font-size:12px;margin-top:4px">C:\\money&gt; 87%</div><div>&gt; 여유 92,400원</div><div>&gt; 하루 13,200원</div></div></div>
+    <div style="border-top:1px dashed ${P.line};margin:4px 0 8px"></div>
+    ${feats.map(([a, b]) => `<div style="display:flex;gap:10px;padding:5px 0"><span style="color:${P.ok}">[+]</span><div><div style="color:${P.hi}">${a}</div><div style="color:${P.dim};font-size:13px">${b}</div></div></div>`).join('')}
+    <div style="border-top:1px dashed ${P.line};margin:8px 0 14px"></div>
+    <div style="color:${P.fg};font-size:13px">가격 2,200원 · 한 번만 결제</div><div style="color:${P.dim};font-size:13px">같은 Apple ID 로는 다른 기기에서도 복원할 수 있어요.</div></div>
+    <div style="background:${P.bg};padding:8px 16px 46px">
+      <div style="height:52px;border:1px solid ${P.fg};display:flex;align-items:center;justify-content:center;gap:12px;font-size:15px"><span style="color:${P.dim}">[ ENTER ]</span><span style="color:${P.hi}">2,200원 구매하기</span></div>
+      <div style="display:flex;gap:8px;margin-top:8px">${[['구매 복원', P.cmd], ['[ ESC ] 닫기', P.fg]].map(([t, c]) => `<div style="flex:1;height:44px;border:1px solid ${P.line};display:flex;align-items:center;justify-content:center;font-size:13px;color:${c}">${t}</div>`).join('')}</div></div>`;
+}
+
+// ── 틀 ──
+function phone(inner, bg) {
+  const sc = C.screenW / appW, screenH = Math.round(C.screenW * appH / appW);
+  return `<div class="frame" style="left:${(C.w - C.screenW) / 2 - C.bezel}px;top:${C.frameTop}px;width:${C.screenW + C.bezel * 2}px;height:${screenH + C.bezel * 2}px;border-radius:${C.rFrame}px">
+    <div class="screen" style="left:${C.bezel}px;top:${C.bezel}px;width:${C.screenW}px;height:${screenH}px;border-radius:${C.rScreen}px;background:${bg || DARK.bg}">
+      <div class="app" style="transform:scale(${sc})">${inner}</div>
+      ${IP ? `<div style="position:absolute;left:50%;top:${11 * sc}px;width:${120 * sc}px;height:${34 * sc}px;margin-left:${-60 * sc}px;border-radius:${17 * sc}px;background:#000"></div>` : ''}
+    </div></div>`;
+}
+function caption(prompt, title, sub) {
+  return `<div class="cap" style="top:${C.capTop}px">
+    <div class="p" style="font-size:${C.pSize}px"><b>&gt;_</b> C:\\money&gt; ${prompt}</div>
+    <div class="t" style="font-size:${C.tSize}px;margin-top:${C.pSize * 0.7}px">${title}</div>
+    <div class="s" style="font-size:${C.sSize}px;margin-top:${C.sSize * 0.5}px">${sub}</div></div>`;
+}
+const SHOTS = {
+  1: () => caption('-4500 커피', '한 줄이면 기록 끝', '금액 · 메모 순서 자유, 태그는 알아서') + phone(shotHome()),
+  2: () => caption('dir', '예산은 디스크 용량처럼', '넘으면 "디스크 공간 부족" 경고') + phone(shotFull()),
+  3: () => caption('print', '이번 달을 영수증으로', '한 줄씩 출력, 사진으로 저장 · 공유') + phone(shotPrint()),
+  4: () => caption('stats', '어디에 썼는지 폴더 크기로', '태그별 사용량과 최근 6개월') + phone(shotStats()),
+  5: () => caption('upgrade', '홈 화면 · 잠금화면 위젯', 'PRO · 누르면 바로 입력') + phone(shotWidgets(), '#2B2E37'),
+  6: () => caption('budget 15만 /week', '주간 예산 · 라이트 모드', '기록은 폰 안에만, 서버 없음') + phone(shotWeekLight(), LIGHT.bg),
+  pro: () => `<div class="app" style="transform:scale(${C.w / appW});background:${DARK.bg}">${shotPro()}</div>`,
+};
+document.getElementById('root').innerHTML = `<div class="canvas" style="width:${C.w}px;height:${C.h}px">${SHOTS[shot]()}</div>`;
+</script>
+</body>
+</html>
