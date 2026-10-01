@@ -24,6 +24,12 @@ if plist.exists():
     add = "".join(
         f"\t<key>{k}</key>\n\t<string>{v}</string>\n" for k, v in keys.items() if f"<key>{k}</key>" not in s
     )
+    # 위젯을 누르면 moneyexe://add 로 앱이 열린다 (입력칸 바로 열기)
+    if "<key>CFBundleURLTypes</key>" not in s:
+        add += ("\t<key>CFBundleURLTypes</key>\n\t<array>\n\t\t<dict>\n"
+                "\t\t\t<key>CFBundleURLName</key>\n\t\t\t<string>com.isla0x.moneyExe</string>\n"
+                "\t\t\t<key>CFBundleURLSchemes</key>\n\t\t\t<array>\n\t\t\t\t<string>moneyexe</string>\n\t\t\t</array>\n"
+                "\t\t</dict>\n\t</array>\n")
     # 암호화 안 씀 (App Store 수출 규정 질문을 건너뛴다)
     if "<key>ITSAppUsesNonExemptEncryption</key>" not in s:
         add += "\t<key>ITSAppUsesNonExemptEncryption</key>\n\t<false/>\n"

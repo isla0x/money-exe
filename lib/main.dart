@@ -1,23 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'pro/pro_controller.dart';
 import 'screens/boot_screen.dart';
+import 'screens/home_screen.dart';
 import 'state/money_store.dart';
 import 'theme/term_palette.dart';
+import 'widget_sync.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-  final store = MoneyStore();
+  final pro = ProController();
+  await pro.init();
+  final store = MoneyStore(pro: pro);
   await store.load();
   store.systemBrightness = WidgetsBinding.instance.platformDispatcher.platformBrightness;
-  runApp(MoneyExeApp(store: store));
+
+  // 위젯은 기록 · 예산 · PRO 상태가 바뀔 때마다 새로 그린다. (store 는 pro 변화도 알려준다)
+  final fromWidget = await WidgetSync.init();
+  void pushWidget() => WidgetSync.push(store.data, store.now(), pro: store.isPro);
+  pushWidget();
+  store.addListener(pushWidget);
+
+  runApp(MoneyExeApp(store: store, fromWidget: fromWidget));
 }
 
 class MoneyExeApp extends StatefulWidget {
-  const MoneyExeApp({super.key, required this.store});
+  const MoneyExeApp({super.key, required this.store, this.fromWidget = false});
 
   final MoneyStore store;
+
+  /// 위젯을 눌러서 켜졌으면 부팅 화면 없이 바로 입력칸을 연다.
+  final bool fromWidget;
 
   @override
   State<MoneyExeApp> createState() => _MoneyExeAppState();
@@ -68,7 +83,7 @@ class _MoneyExeAppState extends State<MoneyExeApp> with WidgetsBindingObserver {
             ),
             child: child ?? const SizedBox.shrink(),
           ),
-          home: BootScreen(store: store),
+          home: widget.fromWidget ? HomeScreen(store: store, focusInput: true) : BootScreen(store: store),
         );
       },
     );

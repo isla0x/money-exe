@@ -23,6 +23,7 @@ class TitleBar extends StatelessWidget {
     this.active,
     this.onStats,
     this.onHelp,
+    this.onPro,
   });
 
   final TermPalette palette;
@@ -32,6 +33,9 @@ class TitleBar extends StatelessWidget {
   final String? active;
   final VoidCallback? onStats;
   final VoidCallback? onHelp;
+
+  /// 아이폰 무료 사용자에게만 넘긴다: 제목줄에 PRO 링크가 생긴다.
+  final VoidCallback? onPro;
 
   @override
   Widget build(BuildContext context) {
@@ -62,6 +66,7 @@ class TitleBar extends StatelessWidget {
                     style: termStyle(p.dim, size: 12),
                   ),
                 ),
+                if (onPro != null) _TabLink(label: 'PRO', active: false, palette: p, onTap: onPro, color: p.tag),
                 if (onStats != null || active == 'stats')
                   _TabLink(label: 'stats', active: active == 'stats', palette: p, onTap: onStats),
                 if (onHelp != null || active == 'help')
@@ -76,12 +81,13 @@ class TitleBar extends StatelessWidget {
 }
 
 class _TabLink extends StatelessWidget {
-  const _TabLink({required this.label, required this.active, required this.palette, this.onTap});
+  const _TabLink({required this.label, required this.active, required this.palette, this.onTap, this.color});
 
   final String label;
   final bool active;
   final TermPalette palette;
   final VoidCallback? onTap;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -97,7 +103,7 @@ class _TabLink extends StatelessWidget {
             height: 44,
             padding: const EdgeInsets.symmetric(horizontal: 10),
             alignment: Alignment.center,
-            child: Text(label, style: termStyle(active ? p.bg : p.dim, size: 13)),
+            child: Text(label, style: termStyle(active ? p.bg : (color ?? p.dim), size: 13)),
           ),
         ),
       ),

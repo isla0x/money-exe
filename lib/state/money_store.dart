@@ -5,11 +5,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../logic/commands.dart';
 import '../logic/money.dart';
+import '../pro/pro_controller.dart';
 import '../theme/term_palette.dart';
 
 /// 앱 상태. 명령어를 실행하고 폰 안에만 저장한다 (서버 없음).
 class MoneyStore extends ChangeNotifier {
-  MoneyStore({DateTime Function()? clock}) : _clock = clock ?? DateTime.now;
+  MoneyStore({DateTime Function()? clock, this.pro}) : _clock = clock ?? DateTime.now {
+    pro?.addListener(notifyListeners);
+  }
+
+  /// PRO 결제 상태 (아이폰 위젯). 없으면 무료로 취급한다.
+  final ProController? pro;
+  bool get isPro => pro?.isPro ?? false;
 
   static const _key = 'money_exe_state_v1';
   static const _maxLog = 4;
@@ -56,10 +63,21 @@ class MoneyStore extends ChangeNotifier {
     if (s.isEmpty) return null;
     _history.add(s);
     if (_history.length > _maxHistory) _history.removeAt(0);
+    // 디버그 빌드 전용: 결제 없이 PRO 켜고 끄기.
+    if (kDebugMode && pro != null && s.toLowerCase() == 'pro --dev') {
+      pro!.debugToggle();
+      return _apply(CommandResult(_data, [
+        LogLine(LogKind.cmd, '$prompt $s'),
+        LogLine(LogKind.info, '[dev] PRO ${pro!.isPro ? 'on' : 'off'}'),
+      ]));
+    }
     return _apply(runCommand(_data, s, _clock()));
   }
 
   void remove(int id) => _apply(removeEntry(_data, id));
+
+  /// 화면 로그에 안내 한 줄.
+  void note(String text) => _apply(CommandResult(_data, [LogLine(LogKind.info, text)]));
 
   /// 날짜가 바뀌었을 수 있으니 다시 그린다 (앱으로 돌아왔을 때).
   void refresh() => notifyListeners();
@@ -76,5 +94,11 @@ class MoneyStore extends ChangeNotifier {
     notifyListeners();
     if (changed) _prefs?.setString(_key, jsonEncode(_data.toJson()));
     return out;
+  }
+
+  @override
+  void dispose() {
+    pro?.removeListener(notifyListeners);
+    super.dispose();
   }
 }

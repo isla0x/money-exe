@@ -26,7 +26,7 @@ class CommandResult {
   final MoneyData data;
   final List<LogLine> lines;
 
-  /// 열어야 할 화면: 'stats' | 'help' | 'print'
+  /// 열어야 할 화면: 'stats' | 'help' | 'print' | 'pro' | 'restore'
   final String? route;
 
   /// stats · print 가 볼 달
@@ -109,6 +109,10 @@ CommandResult runCommand(MoneyData d, String raw, DateTime now) {
       return CommandResult(d, const [], clearLog: true);
     case 'help' || '?':
       return CommandResult(d, [echo], route: 'help');
+    case 'upgrade' || 'pro':
+      return CommandResult(d, [echo], route: 'pro');
+    case 'restore':
+      return CommandResult(d, [echo], route: 'restore');
     case 'stats' || 'print':
       final month = arg.isEmpty ? monthOf(now) : parseMonth(arg, now);
       if (month == null) {

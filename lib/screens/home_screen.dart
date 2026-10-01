@@ -7,20 +7,26 @@ import 'package:flutter/services.dart';
 import '../logic/commands.dart';
 import '../logic/money.dart';
 import '../models/entry.dart';
+import '../pro/pro_controller.dart';
 import '../state/money_store.dart';
 import '../theme/term_palette.dart';
+import '../widget_sync.dart';
 import '../widgets/disk_panel.dart';
 import '../widgets/term_widgets.dart';
 import 'disk_full_dialog.dart';
 import 'help_screen.dart';
 import 'print_screen.dart';
+import 'pro_screen.dart';
 import 'stats_screen.dart';
 
 /// 메인 화면: 디스크(예산) + 이번 달 기록 + 명령어 입력창.
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.store});
+  const HomeScreen({super.key, required this.store, this.focusInput = false});
 
   final MoneyStore store;
+
+  /// 위젯을 눌러서 왔으면 바로 입력칸을 연다.
+  final bool focusInput;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -50,10 +56,26 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _scrollToEnd(animate: false);
+    WidgetSync.addRequests.addListener(_onWidgetTap);
+    if (widget.focusInput) WidgetsBinding.instance.addPostFrameCallback((_) => _startInput());
+  }
+
+  /// 앱이 켜져 있을 때 위젯을 누르면: 다른 화면은 닫고 입력칸을 연다.
+  void _onWidgetTap() {
+    if (!mounted) return;
+    Navigator.of(context).popUntil((r) => r.isFirst);
+    _startInput();
+  }
+
+  void _startInput() {
+    if (!mounted) return;
+    if (_ctrl.text.isEmpty) _prefill('-');
+    _focus.requestFocus();
   }
 
   @override
   void dispose() {
+    WidgetSync.addRequests.removeListener(_onWidgetTap);
     _ctrl.dispose();
     _focus.dispose();
     _scroll.dispose();
@@ -82,10 +104,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _open(String route, {DateTime? month}) {
+    if ((route == 'pro' || route == 'restore') && !ProController.supported) {
+      store.note('PRO(홈 화면 위젯)는 지금은 아이폰 전용이에요.');
+      return;
+    }
+    if (route == 'restore') store.pro?.restore();
     final m = month ?? monthOf(store.now());
     final Widget page = switch (route) {
       'stats' => StatsScreen(store: store, month: m),
       'print' => PrintScreen(store: store, month: m),
+      'pro' || 'restore' => ProScreen(store: store),
       _ => HelpScreen(store: store),
     };
     _focus.unfocus();
@@ -156,6 +184,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 now: store.now(),
                 onStats: () => _open('stats'),
                 onHelp: () => _open('help'),
+                onPro: ProController.supported && !store.isPro ? () => _open('pro') : null,
               ),
               Expanded(
                 child: Padding(

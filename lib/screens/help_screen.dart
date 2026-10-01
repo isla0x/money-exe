@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../logic/commands.dart';
 import '../logic/money.dart';
+import '../pro/pro_controller.dart';
 import '../state/money_store.dart';
 import '../theme/term_palette.dart';
 import '../widgets/term_widgets.dart';
@@ -19,6 +20,12 @@ const _entries = <(String, String, String, String?)>[
   ('undo', '', '마지막으로 기록한 한 건을 지워요.', null),
   ('rm', '', '목록 오른쪽 rm 을 두 번 누르면 그 기록을 지워요.', null),
   ('cls', '', '화면 로그만 지워요. 기록은 그대로예요.', null),
+];
+
+/// 아이폰에서만 보인다.
+const _proEntries = <(String, String, String, String?)>[
+  ('upgrade', '', 'PRO 소개와 구매. 홈 화면 · 잠금화면 위젯을 한 번 결제로 열어요.', null),
+  ('restore', '', '예전에 산 PRO 를 다시 불러와요. (기기 변경, 재설치)', null),
 ];
 
 class HelpScreen extends StatelessWidget {
@@ -54,7 +61,7 @@ class HelpScreen extends StatelessWidget {
                 Text('한 줄이면 기록 끝.  <필수>  [선택]', style: termStyle(p.dim, size: 13)),
                 const SizedBox(height: 10),
                 DashedDivider(color: p.line),
-                for (final e in _entries)
+                for (final e in [..._entries, if (ProController.supported) ..._proEntries])
                   Container(
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.line))),

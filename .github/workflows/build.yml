@@ -69,3 +69,22 @@ jobs:
         run: |
           set -o pipefail
           flutter build ios --release --no-codesign 2>&1 | tee ios.txt || { grep -iE 'error|requires|minimum|deployment' ios.txt | grep -v '^ *$' | head -40 | sed 's/^/::error::/'; exit 1; }
+
+  # 위젯 Swift 코드가 컴파일되는지 확인 (Xcode 프로젝트 없이 타입 체크만)
+  ios-widget:
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Typecheck widget Swift
+        run: |
+          xcodebuild -version
+          SDK=$(xcrun --sdk iphoneos --show-sdk-path)
+          if ! out=$(xcrun swiftc -typecheck -parse-as-library -sdk "$SDK" -target arm64-apple-ios17.0 ios_widget/*.swift 2>&1); then
+            echo "$out"
+            echo "$out" | grep -E "error:" | head -20 | while IFS= read -r line; do echo "::error::$line"; done
+            exit 1
+          fi
+          echo "$out"
+          echo "widget swift OK"
