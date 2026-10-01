@@ -34,7 +34,8 @@ class _StatsScreenState extends State<StatsScreen> {
     final tags = byTag(list);
     final maxTag = tags.isEmpty ? 1 : tags.first.amount;
     final months = recentMonths(d, _month);
-    var maxMonth = d.budget;
+    final monthBudget = d.period == Period.month ? d.budget : 0;
+    var maxMonth = monthBudget;
     for (final m in months) {
       if (m.amount > maxMonth) maxMonth = m.amount;
     }
@@ -143,7 +144,7 @@ class _StatsScreenState extends State<StatsScreen> {
                   '${tags.length}개 폴더 · ${list.length}개 파일 · ${won(spent)}원',
                   style: termStyle(p.fg, size: 13),
                 ),
-                if (d.budget > 0)
+                if (d.budget > 0 && d.period == Period.month)
                   Text(
                     spent <= d.budget
                         ? '예산 ${won(d.budget)}원 중 ${won(d.budget - spent)}원 남음'
@@ -152,7 +153,7 @@ class _StatsScreenState extends State<StatsScreen> {
                   ),
                 const SizedBox(height: 22),
                 Text('최근 6개월', style: termStyle(p.hi)),
-                if (d.budget > 0) Text('| 표시 = 예산 ${won(d.budget)}원', style: termStyle(p.dim, size: 12)),
+                if (monthBudget > 0) Text('| 표시 = 예산 ${won(monthBudget)}원', style: termStyle(p.dim, size: 12)),
                 const SizedBox(height: 8),
                 for (final m in months)
                   Padding(
@@ -172,9 +173,9 @@ class _StatsScreenState extends State<StatsScreen> {
                           Expanded(
                             child: _Bar(
                               fill: m.amount / maxMonth,
-                              color: d.budget > 0 && m.amount > d.budget ? p.warn : p.ok,
+                              color: monthBudget > 0 && m.amount > monthBudget ? p.warn : p.ok,
                               track: p.line,
-                              mark: d.budget > 0 ? d.budget / maxMonth : null,
+                              mark: monthBudget > 0 ? monthBudget / maxMonth : null,
                               markColor: p.hi,
                               height: 10,
                             ),

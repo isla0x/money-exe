@@ -139,4 +139,65 @@ void main() {
     expect(m.map((x) => x.month.month), [7, 8, 9]);
     expect(m.map((x) => x.amount), [50000, 0, 1000]);
   });
+
+  group('주간 예산', () {
+    test('budget 15만 /week 은 주간, 금액 없이 /month 는 주기만 바꾼다', () {
+      var d = run(MoneyData.initial(), 'budget 15만 /week');
+      expect(d.budget, 150000);
+      expect(d.period, Period.week);
+      d = run(d, 'budget 200000');
+      expect(d.period, Period.week, reason: '주기를 안 쓰면 그대로');
+      d = run(d, 'budget /month');
+      expect(d.budget, 200000);
+      expect(d.period, Period.month);
+      d = run(d, 'budget 주간 10만');
+      expect((d.budget, d.period), (100000, Period.week));
+    });
+
+    test('이번 주(월~일)만 센다', () {
+      var d = run(MoneyData.initial(), 'budget 100000 /week');
+      d = runCommand(d, '-30000 지난주', DateTime(2026, 9, 20, 22)).data; // 일요일
+      d = runCommand(d, '-20000 월요일', DateTime(2026, 9, 21, 9)).data;
+      d = run(d, '-10000 목요일');
+      final disk = Disk.of(d, now);
+      expect(disk.spent, 30000);
+      expect(disk.daysLeft, 4);
+      expect(disk.title, '이번 주 예산 (9.21~9.27)');
+      expect(disk.perDay, 17500);
+      expect(disk.weekMessage, isNull);
+    });
+
+    test('주간 예산을 넘으면 경고창, 다음 주엔 다시 빈 디스크', () {
+      var d = run(MoneyData.initial(), 'budget 50000 /week');
+      final r = runCommand(d, '-60000 가방', now);
+      expect(r.alert, isTrue);
+      expect(Disk.of(r.data, now).message, contains('월요일에 비워져요'));
+      expect(Disk.of(r.data, DateTime(2026, 9, 28)).spent, 0);
+    });
+
+    test('한 달 예산이면 이번 주 몫을 보여준다', () {
+      var d = run(MoneyData.initial(), 'budget 700000');
+      d = runCommand(d, '-100000 장보기', DateTime(2026, 9, 10)).data;
+      d = run(d, '-50000 저녁');
+      final disk = Disk.of(d, now);
+      // 9/21 에 남은 60만 원을 9/21~9/30 (10일) 에 나누면 이번 주(7일) 몫은 42만 원
+      expect(disk.weekShare, 420000);
+      expect(disk.weekSpent, 50000);
+      expect(disk.weekMessage, startsWith('이번 주 여유 370,000원'));
+    });
+
+    test('달이 바뀌는 주는 이번 달 안의 날만', () {
+      final d = run(MoneyData.initial(), 'budget 300000');
+      final disk = Disk.of(d, DateTime(2026, 9, 29)); // 화요일, 9/28~9/30 만 9월
+      expect(disk.weekShare, 300000);
+      final oct = Disk.of(d, DateTime(2026, 10, 1)); // 목요일, 10/1~10/4 는 31일 중 4일
+      expect(oct.weekShare, (300000 * 4 / 31).floor());
+    });
+
+    test('저장했다 불러와도 주기 유지', () {
+      final d = run(MoneyData.initial(), 'budget 15만 /week');
+      expect(MoneyData.fromJson(d.toJson()).period, Period.week);
+      expect(MoneyData.fromJson(const {'budget': 1}).period, Period.month);
+    });
+  });
 }

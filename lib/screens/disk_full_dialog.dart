@@ -74,10 +74,12 @@ class DiskFullDialog extends StatelessWidget {
                       children: [
                         Text('C: 드라이브의 공간이 부족합니다.', style: termStyle(p.hi, size: 13, weight: FontWeight.w700)),
                         const SizedBox(height: 6),
-                        Text('${disk.month.month}월 예산을 ${won(-disk.free)}원 초과했어요.', style: termStyle(p.fg, size: 13)),
+                        Text('${disk.periodName} 예산을 ${won(-disk.free)}원 초과했어요.', style: termStyle(p.fg, size: 13)),
                         const SizedBox(height: 4),
                         Text(
-                          disk.daysLeft > 1 ? '남은 ${disk.daysLeft}일은 조금만 아껴볼까요?' : '오늘이 이번 달 마지막 날이에요.',
+                          disk.daysLeft > 1
+                              ? '남은 ${disk.daysLeft}일은 조금만 아껴볼까요?'
+                              : (disk.weekly ? '내일(월요일)이면 디스크가 다시 비워져요.' : '오늘이 이번 달 마지막 날이에요.'),
                           style: termStyle(p.dim, size: 12),
                         ),
                       ],

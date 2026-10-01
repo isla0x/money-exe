@@ -38,7 +38,7 @@ class DiskPanel extends StatelessWidget {
     return Semantics(
       label: none
           ? '이번 달 ${won(d.spent)}원 사용. ${d.message}'
-          : '${d.month.month}월 예산 ${won(d.budget)}원 중 ${won(d.spent)}원 사용, ${d.pctLabel}. ${d.message}',
+          : '${d.title} ${won(d.budget)}원 중 ${won(d.spent)}원 사용, ${d.pctLabel}. ${d.message} ${d.weekMessage ?? ''}',
       excludeSemantics: true,
       button: onTap != null,
       child: Material(
@@ -54,7 +54,12 @@ class DiskPanel extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: Text('로컬 디스크 (C:) · ${d.month.month}월 예산', style: termStyle(p.dim, size: 12)),
+                      child: Text(
+                        '로컬 디스크 (C:) · ${d.title}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: termStyle(p.dim, size: 12),
+                      ),
                     ),
                     Text(none ? '--' : '${d.pctLabel} 사용', style: termStyle(p.dim, size: 12)),
                   ],
@@ -72,6 +77,8 @@ class DiskPanel extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(d.message, style: termStyle(msgColor(p), size: 12)),
+                if (d.weekMessage != null)
+                  Text(d.weekMessage!, style: termStyle((d.weekLeft ?? 0) < 0 ? p.warn : p.dim, size: 12)),
               ],
             ),
           ),

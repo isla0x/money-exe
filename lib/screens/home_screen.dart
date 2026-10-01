@@ -100,9 +100,10 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context) => DiskFullDialog(store: store),
     );
     if (raise == true && mounted) {
-      // 지금 쓴 돈보다 큰 다음 10만 원 단위를 제안한다.
-      final spent = store.disk.spent;
-      final next = (spent ~/ 100000 + 1) * 100000;
+      // 지금 쓴 돈보다 큰 다음 단위(한 달 10만 원 · 주간 1만 원)를 제안한다.
+      final disk = store.disk;
+      final step = disk.weekly ? 10000 : 100000;
+      final next = (disk.spent ~/ step + 1) * step;
       _prefill('budget $next');
     }
   }

@@ -169,24 +169,52 @@ CommandResult runCommand(MoneyData d, String raw, DateTime now) {
   );
 }
 
+const _weekWords = {'/week', 'week', '/w', '주', '/주', '주간', '매주', '일주일'};
+const _monthWords = {'/month', 'month', '/m', '월', '/월', '달', '월간', '매달', '한달'};
+
 CommandResult _budget(MoneyData d, String arg, DateTime now, LogLine echo) {
-  final a = arg.replaceAll(' ', '');
-  if (a.isEmpty) {
+  // "budget 150000 /week" "budget 주간 15만" "budget 700000" (주기를 안 쓰면 지금 주기 그대로)
+  Period? period;
+  final rest = <String>[];
+  for (final t in arg.split(RegExp(r'\s+')).where((t) => t.isNotEmpty)) {
+    final w = t.toLowerCase();
+    if (_weekWords.contains(w)) {
+      period = Period.week;
+    } else if (_monthWords.contains(w)) {
+      period = Period.month;
+    } else {
+      rest.add(t);
+    }
+  }
+  final a = rest.join();
+  String name(Period p) => p == Period.week ? '주간' : '한 달';
+  if (a.isEmpty && period == null) {
     return CommandResult(d, [
       echo,
-      LogLine(LogKind.info, d.budget > 0 ? '한 달 예산: ${won(d.budget)}원' : '아직 예산이 없어요.'),
-      const LogLine(LogKind.info, '바꾸려면: budget 700000  (끄려면 budget 0)'),
+      LogLine(
+        LogKind.info,
+        d.budget <= 0
+            ? '아직 예산이 없어요.'
+            : d.period == Period.week
+                ? '주간 예산: ${won(d.budget)}원 (매주 월요일에 다시 차요)'
+                : '한 달 예산: ${won(d.budget)}원',
+      ),
+      const LogLine(LogKind.info, '바꾸려면: budget 700000  ·  주간: budget 150000 /week  ·  끄기: budget 0'),
     ]);
   }
-  final b = parseAmount(a);
+  final b = a.isEmpty ? d.budget : parseAmount(a);
   if (b == null || b < 0 || b > maxAmount) {
     return CommandResult(d, [echo, LogLine(LogKind.err, "예산을 알 수 없어요: '$arg' (예: budget 700000)")]);
   }
-  final data = d.copyWith(budget: b);
+  final data = d.copyWith(budget: b, period: period ?? d.period);
   if (b == 0) return CommandResult(data, [echo, const LogLine(LogKind.ok, '✓ 예산을 껐어요.')]);
   final disk = Disk.of(data, now);
   final tail = disk.free >= 0 ? '여유 ${won(disk.free)}원' : '${won(-disk.free)}원 초과';
-  return CommandResult(data, [echo, LogLine(LogKind.ok, '✓ 한 달 예산을 ${won(b)}원으로 정했어요 · $tail')]);
+  return CommandResult(data, [
+    echo,
+    LogLine(LogKind.ok, '✓ ${name(data.period)} 예산을 ${won(b)}원으로 정했어요 · $tail'),
+    if (data.period == Period.week) const LogLine(LogKind.info, '매주 월요일에 디스크가 다시 비워져요.'),
+  ]);
 }
 
 /// 목록의 rm 버튼.
