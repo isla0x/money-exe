@@ -1,0 +1,45 @@
+name: money_exe
+description: "money.exe — 한 줄 명령어로 쓰는 터미널 가계부. 예산은 디스크 용량처럼."
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  shared_preferences: ^2.3.0
+  gal: ^2.3.0
+  share_plus: ^13.0.0
+  path_provider: ^2.1.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.4
+
+# 앱 아이콘: `dart run flutter_launcher_icons` (tool/setup_platforms.sh 가 알아서 돌린다)
+# 원본 그림은 design/icons/
+flutter_launcher_icons:
+  image_path: "assets/icon/icon.png"
+  ios: true
+  remove_alpha_ios: true
+  android: "ic_launcher"
+  adaptive_icon_background: "#1B1B1A"
+  adaptive_icon_foreground: "assets/icon/icon-foreground.png"
+
+flutter:
+  uses-material-design: true
+  fonts:
+    - family: JetBrainsMono
+      fonts:
+        - asset: assets/fonts/JetBrainsMono-Regular.ttf
+        - asset: assets/fonts/JetBrainsMono-Bold.ttf
+          weight: 700
+    - family: NanumGothicCoding
+      fonts:
+        - asset: assets/fonts/NanumGothicCoding-Regular.ttf
+        - asset: assets/fonts/NanumGothicCoding-Bold.ttf
+          weight: 700
