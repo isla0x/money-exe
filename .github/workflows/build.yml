@@ -70,6 +70,16 @@ jobs:
           set -o pipefail
           flutter build ios --release --no-codesign 2>&1 | tee ios.txt || { grep -iE 'error|requires|minimum|deployment' ios.txt | grep -v '^ *$' | head -40 | sed 's/^/::error::/'; exit 1; }
 
+      - name: Widget embedded in app
+        if: hashFiles('ios/MoneyWidget/MoneyWidget.swift') != ''
+        run: |
+          ls build/ios/iphoneos/Runner.app/PlugIns
+          test -d build/ios/iphoneos/Runner.app/PlugIns/MoneyWidgetExtension.appex || { echo "::error::위젯이 앱 안에 들어가지 않았어요"; exit 1; }
+          V=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' build/ios/iphoneos/Runner.app/PlugIns/MoneyWidgetExtension.appex/Info.plist)
+          A=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' build/ios/iphoneos/Runner.app/Info.plist)
+          echo "::notice::위젯 OK (앱 $A / 위젯 $V)"
+          [ "$V" = "$A" ] || { echo "::error::위젯 버전($V)이 앱 버전($A)과 달라요"; exit 1; }
+
   # 위젯 Swift 코드가 컴파일되는지 확인 (Xcode 프로젝트 없이 타입 체크만)
   ios-widget:
     runs-on: macos-latest
