@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart' show Brightness;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../logic/commands.dart';
