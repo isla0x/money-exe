@@ -109,6 +109,8 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
     if (route == 'restore') store.pro?.restore();
+    // 앱을 켤 때 상품을 못 불러왔으면 구매 화면을 열 때 한 번 더.
+    if (route == 'pro' && store.pro != null && store.pro!.product == null) store.pro!.loadProduct();
     final m = month ?? monthOf(store.now());
     final Widget page = switch (route) {
       'stats' => StatsScreen(store: store, month: m),

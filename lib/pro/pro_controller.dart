@@ -32,6 +32,9 @@ class ProController extends ChangeNotifier {
   /// 결제/복원 진행 중.
   bool busy = false;
 
+  /// 상품을 못 불러온 이유 (구매 화면에 보여준다).
+  String? productProblem;
+
   /// 화면 아래에 보여줄 최근 메시지.
   String? message;
   bool messageIsError = false;
@@ -72,10 +75,17 @@ class ProController extends ChangeNotifier {
     try {
       final res = await _iap.queryProductDetails({productId});
       product = res.productDetails.isEmpty ? null : res.productDetails.first;
-      if (product == null) {
-        debugPrint('money.exe pro: 상품을 찾지 못함 ${res.notFoundIDs} ${res.error}');
+      if (product != null) {
+        productProblem = null;
+      } else if (res.error != null) {
+        productProblem = 'App Store 오류: ${res.error!.message} (${res.error!.code})';
+      } else {
+        productProblem = "App Store 에 '$productId' 상품이 아직 없어요. "
+            'App Store Connect 의 앱 내 구입에서 제품 ID 와 상태(제출 준비 완료)를 확인해 주세요.';
       }
+      if (product == null) debugPrint('money.exe pro: 상품을 찾지 못함 ${res.notFoundIDs} ${res.error}');
     } catch (e) {
+      productProblem = '상품 조회 실패: $e';
       debugPrint('money.exe pro: 상품 조회 실패 ($e)');
     }
     notifyListeners();
@@ -90,7 +100,7 @@ class ProController extends ChangeNotifier {
     if (product == null) {
       await loadProduct();
       if (product == null) {
-        _setMessage('상품 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.', error: true);
+        _setMessage('상품 정보를 불러오지 못했어요. ${productProblem ?? '잠시 후 다시 시도해 주세요.'}', error: true);
         return;
       }
     }
