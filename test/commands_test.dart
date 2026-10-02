@@ -51,7 +51,8 @@ void main() {
   test('+ 수입은 안 받는다', () {
     final r = runCommand(MoneyData.initial(), '+30000 월급', now);
     expect(r.data.entries, isEmpty);
-    expect(r.lines.last.kind, LogKind.err);
+    expect(r.lines[1].kind, LogKind.err);
+    expect(r.lines.last.text, contains('budget +30000 월급'));
   });
 
   test('budget 과 디스크', () {
