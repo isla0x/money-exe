@@ -196,7 +196,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       // 키보드가 올라오면 머리말을 접고 디스크도 한 줄로 줄인다 (작은 폰에서 넘치지 않게).
                       if (!typing) ...[
-                        Text('MONEY [Version 1.0.0]', style: termStyle(p.hi)),
+                        Text('MONEY [Version 1.0.1]', style: termStyle(p.hi)),
                         Text('오늘도 아껴서, 천천히.', style: termStyle(p.dim, size: 13)),
                         const SizedBox(height: 12),
                         Text.rich(TextSpan(children: [

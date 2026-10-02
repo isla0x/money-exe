@@ -111,7 +111,7 @@ class _BootScreenState extends State<BootScreen> {
                                 ),
                               ),
                               const SizedBox(height: 20),
-                              Text('MONEY [Version 1.0.0]', style: termStyle(p.hi)),
+                              Text('MONEY [Version 1.0.1]', style: termStyle(p.hi)),
                               Text('오늘도 아껴서, 천천히.', style: termStyle(p.dim, size: 13)),
                               const SizedBox(height: 32),
                               Text.rich(TextSpan(children: [

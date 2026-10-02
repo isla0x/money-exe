@@ -1,7 +1,7 @@
 name: money_exe
 description: "money.exe — 한 줄 명령어로 쓰는 터미널 가계부. 예산은 디스크 용량처럼."
 publish_to: "none"
-version: 1.0.0+2
+version: 1.0.1+3
 
 environment:
   sdk: ^3.5.0
