@@ -34,8 +34,10 @@ class _StatsScreenState extends State<StatsScreen> {
     final tags = byTag(list);
     final maxTag = tags.isEmpty ? 1 : tags.first.amount;
     final months = recentMonths(d, _month);
-    final monthBudget = d.period == Period.month ? d.budget : 0;
-    var maxMonth = monthBudget;
+    // 막대의 | 표시는 기본 예산, 넘었는지는 그 달 추가 예산까지 더해서 본다.
+    final base = d.period == Period.month ? d.budget : 0;
+    final budgetNow = monthBudget(d, _month);
+    var maxMonth = budgetNow > base ? budgetNow : base;
     for (final m in months) {
       if (m.amount > maxMonth) maxMonth = m.amount;
     }
@@ -144,16 +146,16 @@ class _StatsScreenState extends State<StatsScreen> {
                   '${tags.length}개 폴더 · ${list.length}개 파일 · ${won(spent)}원',
                   style: termStyle(p.fg, size: 13),
                 ),
-                if (d.budget > 0 && d.period == Period.month)
+                if (budgetNow > 0)
                   Text(
-                    spent <= d.budget
-                        ? '예산 ${won(d.budget)}원 중 ${won(d.budget - spent)}원 남음'
-                        : '예산 ${won(d.budget)}원을 ${won(spent - d.budget)}원 넘음',
-                    style: termStyle(spent <= d.budget ? p.dim : p.warn, size: 13),
+                    spent <= budgetNow
+                        ? '예산 ${won(budgetNow)}원 중 ${won(budgetNow - spent)}원 남음'
+                        : '예산 ${won(budgetNow)}원을 ${won(spent - budgetNow)}원 넘음',
+                    style: termStyle(spent <= budgetNow ? p.dim : p.warn, size: 13),
                   ),
                 const SizedBox(height: 22),
                 Text('최근 6개월', style: termStyle(p.hi)),
-                if (monthBudget > 0) Text('| 표시 = 예산 ${won(monthBudget)}원', style: termStyle(p.dim, size: 12)),
+                if (base > 0) Text('| 표시 = 기본 예산 ${won(base)}원', style: termStyle(p.dim, size: 12)),
                 const SizedBox(height: 8),
                 for (final m in months)
                   Padding(
@@ -173,9 +175,9 @@ class _StatsScreenState extends State<StatsScreen> {
                           Expanded(
                             child: _Bar(
                               fill: m.amount / maxMonth,
-                              color: monthBudget > 0 && m.amount > monthBudget ? p.warn : p.ok,
+                              color: base > 0 && m.amount > monthBudget(d, m.month) ? p.warn : p.ok,
                               track: p.line,
-                              mark: monthBudget > 0 ? monthBudget / maxMonth : null,
+                              mark: base > 0 ? base / maxMonth : null,
                               markColor: p.hi,
                               height: 10,
                             ),

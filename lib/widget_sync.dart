@@ -73,7 +73,9 @@ Map<String, dynamic> widgetSnapshot(MoneyData d, DateTime now, {bool pro = false
     'period': d.period.name,
     // 위젯은 auto 일 때 iOS 의 다크/라이트 설정을 직접 따른다.
     'mode': d.mode,
-    'budget': d.budget,
+    // 이번 주기 예산 (추가 예산 포함). 주기가 지나면 위젯은 기본 예산(base)으로 돌아간다.
+    'budget': disk.budget,
+    'base': d.budget,
     'spent': disk.spent,
     'count': disk.count,
     'from': disk.start.millisecondsSinceEpoch,

@@ -36,7 +36,10 @@ struct MoneySnapshot: Decodable {
     let period: String
     /// auto | light | dark. 예전 데이터에는 없을 수 있다.
     let mode: String?
+    /// 이번 주기 예산 (그 주기에만 더한 추가 예산 포함)
     let budget: Int
+    /// 기본 예산. 주기가 지나면 추가 예산 없이 이것으로. 예전 데이터에는 없을 수 있다.
+    let base: Int?
     let spent: Int
     let count: Int
     /// 이번 주기 시작 · 끝 (밀리초, 끝은 포함하지 않음)
@@ -57,7 +60,7 @@ struct MoneySnapshot: Decodable {
     }
 
     static let empty = MoneySnapshot(
-        pro: false, period: "month", mode: "auto", budget: 0, spent: 0, count: 0,
+        pro: false, period: "month", mode: "auto", budget: 0, base: 0, spent: 0, count: 0,
         from: Date().timeIntervalSince1970 * 1000, until: Date().addingTimeInterval(86400 * 30).timeIntervalSince1970 * 1000,
         recent: []
     )
@@ -67,7 +70,7 @@ struct MoneySnapshot: Decodable {
         let start = cal.date(from: cal.dateComponents([.year, .month], from: Date())) ?? Date()
         let end = cal.date(byAdding: .month, value: 1, to: start) ?? Date()
         return MoneySnapshot(
-            pro: true, period: "month", mode: "auto", budget: 700000, spent: 607600, count: 21,
+            pro: true, period: "month", mode: "auto", budget: 700000, base: 700000, spent: 607600, count: 21,
             from: start.timeIntervalSince1970 * 1000, until: end.timeIntervalSince1970 * 1000,
             recent: [
                 RecentItem(d: "09.23", m: "커피", a: 4800),
@@ -94,6 +97,7 @@ struct MoneySnapshot: Decodable {
         var end = Date(timeIntervalSince1970: until / 1000)
         var spent = self.spent
         var recent = self.recent
+        var budget = self.budget
         var guardCount = 0
         // 주기가 끝났으면 새 주기 (앱을 아직 안 열어서 기록이 없다)
         while date >= end && guardCount < 60 {
@@ -103,6 +107,7 @@ struct MoneySnapshot: Decodable {
                 : cal.date(byAdding: .month, value: 1, to: start)) ?? start.addingTimeInterval(86400 * 7)
             spent = 0
             recent = []
+            budget = base ?? self.budget
             guardCount += 1
         }
         let today = cal.startOfDay(for: date)

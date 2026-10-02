@@ -143,7 +143,10 @@ CommandResult runCommand(MoneyData d, String raw, DateTime now) {
   }
 
   if (s.startsWith('+')) {
-    return reply(const [LogLine(LogKind.err, 'money.exe 는 쓴 돈만 기록해요. 금액 앞에 - 를 붙이거나 그냥 숫자만 써 주세요.')]);
+    return reply([
+      const LogLine(LogKind.err, 'money.exe 는 쓴 돈만 기록해요. 금액 앞에 - 를 붙이거나 그냥 숫자만 써 주세요.'),
+      LogLine(LogKind.info, '이번 ${d.period == Period.week ? '주' : '달'} 예산을 늘리려면: budget $s'),
+    ]);
   }
 
   // 금액이 들어 있으면 지출 기록. "-" 붙은 금액을 먼저, 없으면 처음 나온 숫자.
@@ -189,6 +192,8 @@ const _weekWords = {'/week', 'week', '/w', '주', '/주', '주간', '매주', '�
 const _monthWords = {'/month', 'month', '/m', '월', '/월', '달', '월간', '매달', '한달'};
 
 CommandResult _budget(MoneyData d, String arg, DateTime now, LogLine echo) {
+  final first = arg.split(RegExp(r'\s+')).first;
+  if (first.startsWith('+') || (first.startsWith('-') && first.length > 1)) return _extra(d, arg, now, echo);
   // "budget 150000 /week" "budget 주간 15만" "budget 700000" (주기를 안 쓰면 지금 주기 그대로)
   Period? period;
   final rest = <String>[];
@@ -205,6 +210,7 @@ CommandResult _budget(MoneyData d, String arg, DateTime now, LogLine echo) {
   final a = rest.join();
   String name(Period p) => p == Period.week ? '주간' : '한 달';
   if (a.isEmpty && period == null) {
+    final disk = Disk.of(d, now);
     return CommandResult(d, [
       echo,
       LogLine(
@@ -215,7 +221,10 @@ CommandResult _budget(MoneyData d, String arg, DateTime now, LogLine echo) {
                 ? '주간 예산: ${won(d.budget)}원 (매주 월요일에 다시 차요)'
                 : '한 달 예산: ${won(d.budget)}원',
       ),
+      if (disk.extra > 0)
+        LogLine(LogKind.info, '${disk.periodName} 추가 예산 +${won(disk.extra)}원 → ${disk.periodName} ${won(disk.budget)}원'),
       const LogLine(LogKind.info, '바꾸려면: budget 700000  ·  주간: budget 150000 /week  ·  끄기: budget 0'),
+      const LogLine(LogKind.info, '이번 주기에만 더하기: budget +50000  ·  줄이기: budget -50000'),
     ]);
   }
   final b = a.isEmpty ? d.budget : parseAmount(a);
@@ -230,6 +239,50 @@ CommandResult _budget(MoneyData d, String arg, DateTime now, LogLine echo) {
     echo,
     LogLine(LogKind.ok, '✓ ${name(data.period)} 예산을 ${won(b)}원으로 정했어요 · $tail'),
     if (data.period == Period.week) const LogLine(LogKind.info, '매주 월요일에 디스크가 다시 비워져요.'),
+  ]);
+}
+
+/// "budget +5만 수당" → 이번 주기(이번 주 또는 이번 달)에만 예산을 더한다. "budget -2만" 은 더한 만큼에서 뺀다.
+CommandResult _extra(MoneyData d, String arg, DateTime now, LogLine echo) {
+  final parts = arg.split(RegExp(r'\s+'));
+  final sign = parts.first.startsWith('-') ? -1 : 1;
+  final amount = parseAmount(parts.first.substring(1));
+  final note = parts.skip(1).join(' ').trim();
+  CommandResult err(String m) => CommandResult(d, [echo, LogLine(LogKind.err, m)]);
+  if (amount == null || amount <= 0 || amount > maxAmount) return err("금액을 알 수 없어요: '$arg' (예: budget +50000)");
+  if (d.budget <= 0) {
+    return err('먼저 기본 예산을 정해 주세요. (예: budget 5만 /week)');
+  }
+  final before = Disk.of(d, now);
+  final key = periodKey(d.period, before.start);
+  final cur = before.extra;
+  if (sign < 0 && cur <= 0) return err('${before.periodName}에 추가한 예산이 없어요.');
+  final next = (cur + sign * amount).clamp(0, maxAmount).toInt();
+  final extras = {...d.extras}..remove(key);
+  if (next > 0) extras[key] = next;
+  // 오래된 주기는 정리 (최근 것만 남긴다)
+  if (extras.length > 60) {
+    final keys = extras.keys.toList()..sort();
+    for (final k in keys.take(extras.length - 60)) {
+      extras.remove(k);
+    }
+  }
+  final data = d.copyWith(extras: extras);
+  final after = Disk.of(data, now);
+  final tail = after.free >= 0 ? '여유 ${won(after.free)}원' : '${won(-after.free)}원 초과';
+  final what = note.isEmpty ? '' : ' ($note)';
+  return CommandResult(data, [
+    echo,
+    LogLine(
+      LogKind.ok,
+      sign > 0
+          ? '✓ ${after.periodName} 예산 +${won(amount)}원$what → ${won(after.budget)}원 · $tail'
+          : '✓ ${after.periodName} 추가 예산 -${won(cur - next)}원 → ${won(after.budget)}원 · $tail',
+    ),
+    LogLine(
+      LogKind.info,
+      d.period == Period.week ? '추가 예산은 이번 주에만. 다음 주엔 다시 ${won(d.budget)}원이에요.' : '추가 예산은 이번 달에만. 다음 달엔 다시 ${won(d.budget)}원이에요.',
+    ),
   ]);
 }
 

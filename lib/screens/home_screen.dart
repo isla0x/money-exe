@@ -209,7 +209,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         disk: disk,
                         palette: p,
                         compact: typing,
-                        onTap: () => _prefill(disk.budget > 0 ? 'budget ${disk.budget}' : 'budget '),
+                        onTap: () => _prefill(store.data.budget > 0 ? 'budget ${store.data.budget}' : 'budget '),
                       ),
                       SizedBox(height: typing ? 8 : 16),
                       Row(

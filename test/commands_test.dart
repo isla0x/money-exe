@@ -194,6 +194,55 @@ void main() {
       expect(oct.weekShare, (300000 * 4 / 31).floor());
     });
 
+    test('budget +5만: 이번 주에만 추가, 다음 주엔 기본 예산', () {
+      var d = run(MoneyData.initial(), 'budget 5만 /week');
+      d = run(d, '-30000 장보기');
+      final r = runCommand(d, 'budget +5만 수당', now);
+      d = r.data;
+      expect(r.lines[1].kind, LogKind.ok);
+      expect(r.lines[1].text, contains('이번 주 예산 +50,000원 (수당) → 100,000원'));
+      final disk = Disk.of(d, now);
+      expect((disk.budget, disk.extra, disk.free), (100000, 50000, 70000));
+      d = run(d, 'budget +1만');
+      expect(Disk.of(d, now).budget, 110000);
+      d = run(d, 'budget -3만');
+      expect(Disk.of(d, now).extra, 30000);
+      // 다음 주 (9/28 월) 는 다시 5만
+      final next = Disk.of(d, DateTime(2026, 9, 28, 9));
+      expect((next.budget, next.extra), (50000, 0));
+      // 저장 · 불러오기
+      expect(Disk.of(MoneyData.fromJson(d.toJson()), now).budget, 80000);
+      // 기본 예산을 바꿔도 이번 주 추가분은 그대로
+      d = run(d, 'budget 6만');
+      expect(Disk.of(d, now).budget, 90000);
+    });
+
+    test('budget +/- 오류: 예산 없음 · 추가분 없음 · 금액 이상', () {
+      expect(runCommand(MoneyData.initial(), 'budget +5만', now).lines.last.kind, LogKind.err);
+      final d = run(MoneyData.initial(), 'budget 5만 /week');
+      expect(runCommand(d, 'budget -1만', now).lines.last.text, contains('추가한 예산이 없어요'));
+      expect(runCommand(d, 'budget +abc', now).lines.last.kind, LogKind.err);
+      expect(runCommand(d, 'budget -1만', now).data.budget, 50000);
+    });
+
+    test('한 달 예산에도 이번 달만 추가: 영수증 · 이번 주 몫에 반영', () {
+      var d = run(MoneyData.initial(), 'budget 700000');
+      d = run(d, 'budget +10만 보너스');
+      expect(Disk.of(d, now).budget, 800000);
+      expect(Disk.of(d, DateTime(2026, 10, 2)).budget, 700000);
+      expect(monthBudget(d, DateTime(2026, 9)), 800000);
+      expect(monthBudget(d, DateTime(2026, 10)), 700000);
+      final lines = receiptLines(d, DateTime(2026, 9), now);
+      expect(lines.any((l) => l.left == '추가 예산' && l.right == '+100,000원'), isTrue);
+      expect(Disk.of(d, now).weekShare, 800000 * 7 ~/ 10);
+    });
+
+    test('+ 로 시작하면 지출이 아니라 안내', () {
+      final r = runCommand(run(MoneyData.initial(), 'budget 5만 /week'), '+5만', now);
+      expect(r.data.entries, isEmpty);
+      expect(r.lines.last.text, contains('budget +5만'));
+    });
+
     test('저장했다 불러와도 주기 유지', () {
       final d = run(MoneyData.initial(), 'budget 15만 /week');
       expect(MoneyData.fromJson(d.toJson()).period, Period.week);

@@ -14,6 +14,7 @@ class MoneyData {
     required this.nextId,
     this.period = Period.month,
     this.mode = 'auto',
+    this.extras = const {},
   });
 
   factory MoneyData.initial() => const MoneyData(entries: [], budget: 0, nextId: 1);
@@ -29,12 +30,24 @@ class MoneyData {
   /// 화면 밝기: auto(폰 설정을 따름) | light | dark
   final String mode;
 
-  MoneyData copyWith({List<Entry>? entries, int? budget, int? nextId, Period? period, String? mode}) => MoneyData(
+  /// 그 주기에만 더한 추가 예산 (수당 · 보너스). 키는 [periodKey]. 다음 주기엔 다시 [budget] 만.
+  final Map<String, int> extras;
+
+  MoneyData copyWith({
+    List<Entry>? entries,
+    int? budget,
+    int? nextId,
+    Period? period,
+    String? mode,
+    Map<String, int>? extras,
+  }) =>
+      MoneyData(
         entries: entries ?? this.entries,
         budget: budget ?? this.budget,
         nextId: nextId ?? this.nextId,
         period: period ?? this.period,
         mode: mode ?? this.mode,
+        extras: extras ?? this.extras,
       );
 
   Map<String, dynamic> toJson() => {
@@ -44,6 +57,7 @@ class MoneyData {
         'period': period.name,
         'mode': mode,
         'nextId': nextId,
+        'extras': extras,
       };
 
   factory MoneyData.fromJson(Map<String, dynamic> j) {
@@ -60,6 +74,10 @@ class MoneyData {
       nextId: next,
       period: j['period'] == 'week' ? Period.week : Period.month,
       mode: modeIds.contains(j['mode']) ? j['mode'] as String : 'auto',
+      extras: {
+        for (final e in (j['extras'] as Map? ?? const {}).entries)
+          if (e.value is num && (e.value as num) > 0) e.key.toString(): (e.value as num).toInt(),
+      },
     );
   }
 }
@@ -133,6 +151,17 @@ int sumOf(Iterable<Entry> list) => list.fold(0, (s, e) => s + e.amount);
 
 // ---------------------------------------------------------------- 디스크 (= 예산)
 
+/// 추가 예산을 붙이는 주기 이름. 주간: w2026-09-21 (그 주 월요일) · 한 달: m2026-09
+String periodKey(Period p, DateTime start) =>
+    p == Period.week ? 'w${start.year}-${two(start.month)}-${two(start.day)}' : 'm${start.year}-${two(start.month)}';
+
+/// 그 주기에 더한 추가 예산. 기본 예산이 없으면 0.
+int extraFor(MoneyData d, Period p, DateTime start) => d.budget <= 0 ? 0 : d.extras[periodKey(p, start)] ?? 0;
+
+/// 한 달 예산일 때 그 달 예산 (기본 + 그 달 추가). 통계 · 영수증용.
+int monthBudget(MoneyData d, DateTime month) =>
+    d.budget <= 0 || d.period != Period.month ? 0 : d.budget + extraFor(d, Period.month, monthOf(month));
+
 enum DiskLevel {
   /// 예산을 아직 안 정했다
   none,
@@ -158,6 +187,7 @@ class Disk {
     required this.daysLeft,
     this.weekShare,
     this.weekSpent = 0,
+    this.extra = 0,
   });
 
   factory Disk.of(MoneyData d, DateTime now) {
@@ -166,20 +196,24 @@ class Disk {
       final start = weekStart(now);
       final end = addDays(start, 7);
       final list = entriesBetween(d, start, end);
+      final extra = extraFor(d, Period.week, start);
       return Disk(
         period: Period.week,
         month: monthOf(now),
         start: start,
         end: end,
         spent: sumOf(list),
-        budget: d.budget,
+        budget: d.budget + extra,
         count: list.length,
         daysLeft: daysBetween(today, end),
+        extra: extra,
       );
     }
     final start = monthOf(now);
     final end = addMonths(start, 1);
     final list = entriesBetween(d, start, end);
+    final extra = extraFor(d, Period.month, start);
+    final budget = d.budget + extra;
     // 한 달 예산에서 이번 주 몫: 이번 주가 시작할 때 남아 있던 돈을 남은 날에 고르게 나눈 것.
     int? share;
     var weekSpent = 0;
@@ -191,7 +225,7 @@ class Disk {
       final before = sumOf(entriesBetween(d, start, ws));
       weekSpent = sumOf(entriesBetween(d, ws, we));
       final daysFromWs = daysBetween(ws, end);
-      share = daysFromWs <= 0 ? 0 : ((d.budget - before) * daysBetween(ws, we) / daysFromWs).floor();
+      share = daysFromWs <= 0 ? 0 : ((budget - before) * daysBetween(ws, we) / daysFromWs).floor();
     }
     return Disk(
       period: Period.month,
@@ -199,11 +233,12 @@ class Disk {
       start: start,
       end: end,
       spent: sumOf(list),
-      budget: d.budget,
+      budget: budget,
       count: list.length,
       daysLeft: daysBetween(today, end),
       weekShare: share,
       weekSpent: weekSpent,
+      extra: extra,
     );
   }
 
@@ -216,7 +251,12 @@ class Disk {
   final DateTime start;
   final DateTime end;
   final int spent;
+
+  /// 이번 주기 예산 = 기본 예산 + [extra]
   final int budget;
+
+  /// 이번 주기에만 더한 추가 예산
+  final int extra;
   final int count;
 
   /// 오늘을 포함해 이번 주기에 남은 날
@@ -348,8 +388,10 @@ List<ReceiptLine> receiptLines(MoneyData d, DateTime month, DateTime now) {
   out.add(const ReceiptLine(ReceiptKind.rule));
   out.add(ReceiptLine(ReceiptKind.total, '합계 (${list.length}건)', '${won(spent)}원'));
   if (d.budget > 0 && d.period == Period.month) {
-    final free = d.budget - spent;
+    final budget = monthBudget(d, m);
+    final free = budget - spent;
     out.add(ReceiptLine(ReceiptKind.pair, '예산', '${won(d.budget)}원'));
+    if (budget > d.budget) out.add(ReceiptLine(ReceiptKind.pair, '추가 예산', '+${won(budget - d.budget)}원'));
     out.add(ReceiptLine(ReceiptKind.total, free >= 0 ? '여유 공간' : '예산 초과', '${won(free.abs())}원'));
   }
   final tags = byTag(list);

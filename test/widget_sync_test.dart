@@ -37,6 +37,14 @@ void main() {
     expect(j['until'], DateTime(2026, 9, 28).millisecondsSinceEpoch);
   });
 
+  test('위젯 JSON: 추가 예산은 이번 주기 budget 에만, base 는 기본 예산', () {
+    var d = run(MoneyData.initial(), 'budget 5만 /week');
+    d = run(d, 'budget +5만');
+    final j = widgetSnapshot(d, now);
+    expect(j['budget'], 100000);
+    expect(j['base'], 50000);
+  });
+
   test('upgrade · restore 는 PRO 화면으로', () {
     final d = MoneyData.initial();
     expect(runCommand(d, 'upgrade', now).route, 'pro');
